@@ -1,0 +1,13 @@
+David Okafor
+Backend Software Engineer
+
+Summary: 6 years of experience in backend systems using Java and SQL. No direct
+NLP or machine learning experience but strong software engineering fundamentals.
+
+Education: Bachelor of Science in Software Engineering
+
+Experience:
+- Senior Backend Engineer at FinTechCo (6 years): Built scalable Java microservices,
+  managed PostgreSQL databases, deployed to AWS using Docker.
+
+Skills: Java, SQL, PostgreSQL, AWS, Docker, Project Management, Agile, Leadership

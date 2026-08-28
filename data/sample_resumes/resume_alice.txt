@@ -1,0 +1,17 @@
+Alice Chen
+Machine Learning Engineer
+
+Summary: 5 years of experience building NLP systems in production. Proficient in
+Python, spaCy, NLTK, and Hugging Face Transformers. Deployed multiple models on AWS
+using Docker and Kubernetes. Strong background in data analysis with Pandas and NumPy.
+
+Education: Bachelor of Science in Computer Science, UC Berkeley
+
+Experience:
+- Senior ML Engineer at DataCorp (3 years): Built NLP pipelines for text
+  classification using PyTorch and Transformers. Led a team of 2 junior engineers.
+- ML Engineer at StartupX (2 years): Developed sentiment analysis models using
+  scikit-learn and spaCy, deployed via AWS SageMaker.
+
+Skills: Python, NLP, PyTorch, spaCy, NLTK, AWS, Docker, Kubernetes, Pandas, NumPy,
+Machine Learning, Leadership, Communication

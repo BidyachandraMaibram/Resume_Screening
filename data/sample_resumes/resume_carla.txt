@@ -1,0 +1,15 @@
+Carla Singh
+Data Scientist
+
+Summary: 2 years of experience in data analysis and machine learning. Currently
+learning NLP techniques. Comfortable with Python, Pandas, and scikit-learn.
+
+Education: Master of Science in Data Science, University of Toronto
+
+Experience:
+- Data Analyst at RetailCo (2 years): Used Python and Pandas for sales forecasting.
+  Built basic classification models using scikit-learn. Some exposure to NLTK for
+  a text classification side project.
+
+Skills: Python, Pandas, NumPy, scikit-learn, Machine Learning, Data Analysis, NLTK,
+SQL, Communication

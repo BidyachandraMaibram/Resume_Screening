@@ -1,0 +1,13 @@
+Bob Martinez
+Frontend Developer
+
+Summary: 4 years of experience building web applications with React and JavaScript.
+Some exposure to Python scripting for automation tasks.
+
+Education: Associate Degree in Web Development
+
+Experience:
+- Frontend Developer at WebCo (4 years): Built responsive UIs using React.js and
+  TypeScript. Collaborated with backend teams using SQL databases.
+
+Skills: JavaScript, React, TypeScript, SQL, HTML, CSS, Communication

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume Screening</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <div>
+          <h1>Resume Screening</h1>
+          <p class="subtitle">NLP-powered candidate ranking by job fit</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <form id="screen-form" class="screen-form">
+      <section class="panel">
+        <h2>Job Description</h2>
+        <p class="hint">Paste the role requirements or upload a .txt / .pdf / .docx file.</p>
+        <textarea id="job-description" name="job_description" rows="10" placeholder="Paste job description here…" required></textarea>
+        <div class="job-actions">
+          <label class="file-btn">
+            <input type="file" id="job-file" accept=".txt,.pdf,.docx" hidden>
+            Upload job description
+          </label>
+          {% if sample_job %}
+          <button type="button" class="load-sample" id="load-sample">Load sample job description</button>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Resumes</h2>
+        <p class="hint">Upload one or more candidate resumes (.txt, .pdf, .docx).</p>
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="resume-files" name="resumes" accept=".txt,.pdf,.docx" multiple hidden>
+          <div class="drop-zone-content">
+            <span class="drop-icon">↑</span>
+            <p>Drag & drop resumes here, or <button type="button" class="link-btn" id="browse-btn">browse files</button></p>
+          </div>
+        </div>
+        <ul id="file-list" class="file-list"></ul>
+      </section>
+
+      <section class="panel options-panel">
+        <h2>Screening Options</h2>
+        <div class="options-grid">
+          <label class="field">
+            <span>Required skills</span>
+            <input type="text" id="skills" name="skills" value="python, nlp, machine learning, cloud, deep learning"
+                   placeholder="Comma-separated skill names">
+            <small>Uses canonical names from the skills taxonomy</small>
+          </label>
+          <label class="field">
+            <span>Minimum years of experience</span>
+            <input type="number" id="min-years" name="min_years" value="3" min="0" step="0.5">
+          </label>
+          <label class="field">
+            <span>Show top N candidates</span>
+            <input type="number" id="top" name="top" placeholder="All" min="1">
+          </label>
+        </div>
+
+        <details class="skills-taxonomy">
+          <summary>Available skills taxonomy</summary>
+          <div class="skill-tags">
+            {% for skill in default_skills %}
+            <button type="button" class="skill-tag" data-skill="{{ skill }}">{{ skill }}</button>
+            {% endfor %}
+          </div>
+        </details>
+      </section>
+
+      <button type="submit" class="submit-btn" id="submit-btn">
+        <span class="btn-label">Screen Candidates</span>
+        <span class="spinner hidden" id="spinner"></span>
+      </button>
+    </form>
+
+    <section id="error-banner" class="error-banner hidden"></section>
+
+    <section id="results-section" class="results-section hidden">
+      <div class="results-header">
+        <h2>Ranked Candidates</h2>
+        <p id="results-summary"></p>
+      </div>
+      <div id="warnings" class="warnings hidden"></div>
+      <div id="results-grid" class="results-grid"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Scores combine TF-IDF similarity, skill match ratio, and experience. Results are advisory — always include human review.</p>
+    </div>
+  </footer>
+
+  <script>
+    const form = document.getElementById('screen-form');
+    const jobTextarea = document.getElementById('job-description');
+    const jobFileInput = document.getElementById('job-file');
+    const loadSampleBtn = document.getElementById('load-sample');
+    const resumeInput = document.getElementById('resume-files');
+    const dropZone = document.getElementById('drop-zone');
+    const fileList = document.getElementById('file-list');
+    const browseBtn = document.getElementById('browse-btn');
+    const skillsInput = document.getElementById('skills');
+    const submitBtn = document.getElementById('submit-btn');
+    const spinner = document.getElementById('spinner');
+    const errorBanner = document.getElementById('error-banner');
+    const resultsSection = document.getElementById('results-section');
+    const resultsGrid = document.getElementById('results-grid');
+    const resultsSummary = document.getElementById('results-summary');
+    const warningsEl = document.getElementById('warnings');
+
+    let selectedFiles = [];
+
+    {% if sample_job %}
+    const sampleJob = {{ sample_job | tojson }};
+    if (loadSampleBtn) {
+      loadSampleBtn.addEventListener('click', () => {
+        jobTextarea.value = sampleJob;
+      });
+    }
+    {% endif %}
+
+    jobFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.name.toLowerCase().endsWith('.txt')) {
+        jobTextarea.value = await file.text();
+      } else {
+        const fd = new FormData();
+        fd.append('file', file);
+        const resp = await fetch('/api/extract-text', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (!resp.ok) {
+          errorBanner.textContent = data.error || 'Could not read job description file.';
+          errorBanner.classList.remove('hidden');
+        } else {
+          jobTextarea.value = data.text;
+        }
+      }
+      jobFileInput.value = '';
+    });
+
+    function renderFileList() {
+      fileList.innerHTML = selectedFiles.map((f, i) =>
+        `<li><span>${f.name}</span><button type="button" data-index="${i}" aria-label="Remove">&times;</button></li>`
+      ).join('');
+      fileList.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedFiles.splice(Number(btn.dataset.index), 1);
+          renderFileList();
+        });
+      });
+    }
+
+    function addFiles(files) {
+      for (const f of files) {
+        const ext = f.name.split('.').pop().toLowerCase();
+        if (['txt', 'pdf', 'docx'].includes(ext)) {
+          selectedFiles.push(f);
+        }
+      }
+      renderFileList();
+    }
+
+    browseBtn.addEventListener('click', () => resumeInput.click());
+    resumeInput.addEventListener('change', (e) => addFiles(e.target.files));
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      addFiles(e.dataTransfer.files);
+    });
+    dropZone.addEventListener('click', (e) => {
+      if (e.target === browseBtn) return;
+      resumeInput.click();
+    });
+
+    document.querySelectorAll('.skill-tag').forEach(tag => {
+      tag.addEventListener('click', () => {
+        const skill = tag.dataset.skill;
+        const current = skillsInput.value.split(',').map(s => s.trim()).filter(Boolean);
+        if (!current.includes(skill)) {
+          current.push(skill);
+          skillsInput.value = current.join(', ');
+        }
+      });
+    });
+
+    function labelClass(label) {
+      if (label === 'Strong Fit') return 'label-strong';
+      if (label === 'Possible Fit') return 'label-possible';
+      return 'label-weak';
+    }
+
+    function pct(n) { return (n * 100).toFixed(1); }
+
+    function renderResults(data) {
+      resultsSummary.textContent = `${data.results.length} candidate${data.results.length !== 1 ? 's' : ''} ranked from ${data.total_screened} uploaded`;
+      if (data.warnings && data.warnings.length) {
+        warningsEl.classList.remove('hidden');
+        warningsEl.innerHTML = '<strong>Warnings:</strong> ' + data.warnings.join('; ');
+      } else {
+        warningsEl.classList.add('hidden');
+      }
+
+      resultsGrid.innerHTML = data.results.map((r, idx) => `
+        <article class="result-card ${labelClass(r.label)}">
+          <div class="card-rank">#${idx + 1}</div>
+          <div class="card-body">
+            <header class="card-header">
+              <h3>${r.filename}</h3>
+              <span class="fit-label ${labelClass(r.label)}">${r.label}</span>
+            </header>
+            <div class="score-bar-wrap">
+              <div class="score-bar" style="width: ${pct(r.fit_score)}%"></div>
+              <span class="score-value">${pct(r.fit_score)}% fit</span>
+            </div>
+            <div class="metrics">
+              <div class="metric"><span>Similarity</span><strong>${pct(r.similarity)}%</strong></div>
+              <div class="metric"><span>Skills</span><strong>${pct(r.skill_match_ratio)}%</strong></div>
+              <div class="metric"><span>Experience</span><strong>${r.years_experience} yrs</strong></div>
+              <div class="metric"><span>Education</span><strong>${r.education_label}</strong></div>
+            </div>
+            <div class="skills-detail">
+              <div class="skill-group matched">
+                <span class="skill-heading">Matched</span>
+                ${r.matched_skills.length
+                  ? r.matched_skills.map(s => `<span class="pill pill-matched">${s}</span>`).join('')
+                  : '<span class="none">None</span>'}
+              </div>
+              <div class="skill-group missing">
+                <span class="skill-heading">Missing</span>
+                ${r.missing_skills.length
+                  ? r.missing_skills.map(s => `<span class="pill pill-missing">${s}</span>`).join('')
+                  : '<span class="none">None</span>'}
+              </div>
+            </div>
+          </div>
+        </article>
+      `).join('');
+
+      resultsSection.classList.remove('hidden');
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBanner.classList.add('hidden');
+
+      if (!selectedFiles.length) {
+        errorBanner.textContent = 'Please upload at least one resume.';
+        errorBanner.classList.remove('hidden');
+        return;
+      }
+
+      const fd = new FormData(form);
+      selectedFiles.forEach(f => fd.append('resumes', f));
+
+      submitBtn.disabled = true;
+      spinner.classList.remove('hidden');
+
+      try {
+        const resp = await fetch('/api/screen', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Screening failed');
+        renderResults(data);
+      } catch (err) {
+        errorBanner.textContent = err.message;
+        errorBanner.classList.remove('hidden');
+      } finally {
+        submitBtn.disabled = false;
+        spinner.classList.add('hidden');
+      }
+    });
+
+  </script>
+</body>
+</html>
